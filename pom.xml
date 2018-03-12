@@ -9,8 +9,6 @@
     <version>1.0-SNAPSHOT</version>
 
 
-
-
     <build>
 
         <resources>
@@ -35,5 +33,5 @@
         </plugins>
     </build>
 
-    
+
 </project>

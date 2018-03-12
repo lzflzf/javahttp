@@ -5,12 +5,13 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.util.Scanner;
+import java.util.zip.GZIPOutputStream;
 
 
 public class EchoServer {
     public static void main(String[] args) throws IOException {
         // establish server socket
-        try (ServerSocket s = new ServerSocket(8099)) {
+        try (ServerSocket s = new ServerSocket(8090)) {
 
             while (true) {
                 // wait for client connection
@@ -21,7 +22,11 @@ public class EchoServer {
     }
 
 
-    public static byte[] readFileContent(String fileName) {
+    public static byte[] readFileContent(String fileName) throws IOException{
+
+        ByteArrayOutputStream bbos = new ByteArrayOutputStream();
+        GZIPOutputStream os = new GZIPOutputStream(bbos, 1024);
+
         File file = new File(fileName);
         Long filelength = file.length();
         byte[] filecontent = new byte[filelength.intValue()];
@@ -29,6 +34,9 @@ public class EchoServer {
         try {
             in = new FileInputStream(file);
             in.read(filecontent);
+            os.write(filecontent);
+            os.flush();
+            os.close();
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -40,7 +48,7 @@ public class EchoServer {
 
             }
         }
-        return filecontent;
+        return bbos.toByteArray();
     }
 }
 
@@ -102,6 +110,7 @@ class HandleThread1 implements Runnable {
                 out.flush();
                 out.println("HTTP/1.1 200 OK");
                 out.println("Content-Type: " + ContentType);
+                out.println("Content-Encoding: gzip");
                 out.println();                             //  输出header头
 
                 String rootPath = "D:\\moban2770\\moban2770";
