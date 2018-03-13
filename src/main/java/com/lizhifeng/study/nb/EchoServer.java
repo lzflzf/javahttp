@@ -12,42 +12,12 @@ public class EchoServer {
     public static void main(String[] args) throws IOException {
         // establish server socket
         try (ServerSocket s = new ServerSocket(8090)) {
-
             while (true) {
                 // wait for client connection
                 Socket incoming = s.accept();
                 new Thread(new HandleThread1(incoming)).start();
             }
         }
-    }
-
-
-    public static byte[] readFileContent(String fileName) throws IOException{
-
-        ByteArrayOutputStream bbos = new ByteArrayOutputStream();
-        GZIPOutputStream os = new GZIPOutputStream(bbos, 1024);
-
-        File file = new File(fileName);
-        Long filelength = file.length();
-        byte[] filecontent = new byte[filelength.intValue()];
-        FileInputStream in = null;
-        try {
-            in = new FileInputStream(file);
-            in.read(filecontent);
-            os.write(filecontent);
-            os.flush();
-            os.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                in.close();
-            } catch (IOException e) {
-            }
-        }
-        return bbos.toByteArray();
     }
 }
 
@@ -68,9 +38,7 @@ class HandleThread1 implements Runnable {
 
             InputStream inStream = incoming.getInputStream();
             OutputStream outStream = incoming.getOutputStream();
-
             PrintWriter out = new PrintWriter(outStream, true /* autoFlush */);
-
             boolean flag = false;
 
             String filePath = "";
@@ -109,21 +77,31 @@ class HandleThread1 implements Runnable {
                 out.flush();
                 out.println("HTTP/1.1 200 OK");
                 out.println("Content-Type: " + ContentType);
-                out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
-                out.println();                             //  输出header头
+                // out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
+                out.println();    //  输出header头
 
                 String rootPath = "D:\\moban2770\\moban2770";
 
                 filePath = rootPath + filePath;
 
-                byte[] fileContent = EchoServer.readFileContent(filePath);
-                outStream.write(fileContent);
+                //byte[] fileContent = EchoServer.readFileContent(filePath);
+                //outStream.write(fileContent);
                 //  输出正文 // 如何压缩输出正文
-                // 大文件应该分块(chunk）输出， 并且不应该是每次都读出文件的内容
-                outStream.flush();
+
+
+                File file = new File(filePath);
+                FileInputStream filein = new FileInputStream(file) ;
+                byte[] bytes = new byte[8192] ;
+                int total = filein.read(bytes);
+                while (total != -1) {
+                    outStream.write(bytes, 0, total);
+                    outStream.flush();
+                    total = filein.read(bytes);
+                }
 
                 out.flush();
                 outStream.close();
+                out.close();
                 incoming.close();
             } catch (Exception e) {
                 e.printStackTrace();
