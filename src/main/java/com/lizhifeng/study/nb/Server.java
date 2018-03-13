@@ -4,6 +4,8 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import static com.lizhifeng.study.nb.WebConfig.blackIP;
+
 
 public class Server {
     public static void main(String[] args) throws IOException {
@@ -12,7 +14,9 @@ public class Server {
             while (true) {
                 // wait for client connection
                 Socket incoming = s.accept();
+
                 new Thread(new HandleThread1(incoming)).start();
+
             }
         }
     }

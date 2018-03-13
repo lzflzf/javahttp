@@ -23,13 +23,16 @@ class MimeTypes
     }
 
     public static String getMimeType(String filename) {
-        String ext = "";
+        String MimeType = "text/plain";
         int pot = filename.lastIndexOf(".");
         if (pot > 0) {
-            ext = filename.substring(pot + 1);
-            ext = mimetypes.getProperty(ext);
+            String ext = filename.substring(pot + 1);
+            MimeType = mimetypes.getProperty(ext);
+            if (MimeType == null) {
+                MimeType = "text/plain";
+            }
         }
-        return ext;
+        return MimeType;
     }
 }
 

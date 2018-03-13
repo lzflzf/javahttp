@@ -5,6 +5,7 @@ import java.net.Socket;
 import java.net.URLDecoder;
 import java.util.Scanner;
 
+import static com.lizhifeng.study.nb.WebConfig.index;
 import static com.lizhifeng.study.nb.WebConfig.rootPath;
 
 public class HandleThread1 implements Runnable {
@@ -40,8 +41,7 @@ public class HandleThread1 implements Runnable {
                         filePath = URLDecoder.decode(filePath,"UTF-8") ;
 
                         if (MethonPathHttpversion[1].equals("/")) {
-                            System.out.println("this is index");
-                            filePath = "/index.html";            // 默认首页
+                            filePath = index;
                         }
 
                         if (filePath.indexOf('?') > 0) {
@@ -59,27 +59,27 @@ public class HandleThread1 implements Runnable {
                     }
                 }
 
-                out.flush();
-                out.println("HTTP/1.1 200 OK");
-                out.println("Content-Type: " + ContentType + "; charset=utf-8");
-                // out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
-                out.println();    //  输出header头
 
                 filePath = rootPath + filePath;
-
-                //byte[] fileContent = EchoServer.readFileContent(filePath);
-                //outStream.write(fileContent);
-                //  输出正文 // 如何压缩输出正文
-
-
                 File file = new File(filePath);
-                FileInputStream filein = new FileInputStream(file) ;
-                byte[] bytes = new byte[8192] ;
-                int total = filein.read(bytes);
-                while (total != -1) {
-                    outStream.write(bytes, 0, total);
-                    outStream.flush();
-                    total = filein.read(bytes);
+                if (file.exists()) {
+                    out.println("HTTP/1.1 200 OK");
+                    out.println("Content-Type: " + ContentType + "; charset=utf-8");
+                    // out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
+                    out.println();    //  输出header头
+
+                    FileInputStream filein = new FileInputStream(file);
+                    byte[] bytes = new byte[8192];
+                    int total = filein.read(bytes);
+                    while (total != -1) {
+                        outStream.write(bytes, 0, total);
+                        outStream.flush();
+                        total = filein.read(bytes);
+                    }
+                } else {
+                    out.println("HTTP/1.1 404 Not Found");
+                    // out.println("Content-Type: " + ContentType + "; charset=utf-8");
+                    out.println();
                 }
 
                 out.flush();
