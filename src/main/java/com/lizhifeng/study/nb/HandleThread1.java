@@ -1,28 +1,13 @@
 package com.lizhifeng.study.nb;
 
 import java.io.*;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.util.Scanner;
-import java.util.zip.GZIPOutputStream;
 
+import static com.lizhifeng.study.nb.WebConfig.rootPath;
 
-public class EchoServer {
-    public static void main(String[] args) throws IOException {
-        // establish server socket
-        try (ServerSocket s = new ServerSocket(8090)) {
-            while (true) {
-                // wait for client connection
-                Socket incoming = s.accept();
-                new Thread(new HandleThread1(incoming)).start();
-            }
-        }
-    }
-}
-
-
-class HandleThread1 implements Runnable {
+public class HandleThread1 implements Runnable {
 
     private Socket incoming;
 
@@ -76,11 +61,9 @@ class HandleThread1 implements Runnable {
 
                 out.flush();
                 out.println("HTTP/1.1 200 OK");
-                out.println("Content-Type: " + ContentType);
+                out.println("Content-Type: " + ContentType + "; charset=utf-8");
                 // out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
                 out.println();    //  输出header头
-
-                String rootPath = "D:\\moban2770\\moban2770";
 
                 filePath = rootPath + filePath;
 
@@ -110,5 +93,9 @@ class HandleThread1 implements Runnable {
             e.printStackTrace();
         }
     }
+
+    // 如何从请求报文中获取参数并且调用相应的servlet 处理逻辑
+    // jsp 还是编译成servlet
+    // 如何支持多host和多webapp
 }
 
