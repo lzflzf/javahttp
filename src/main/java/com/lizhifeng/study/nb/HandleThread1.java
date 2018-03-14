@@ -67,7 +67,7 @@ public class HandleThread1 implements Runnable {
                 // out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
                 out.println();    //  输出header头
 
-                FileInputStream filein = new FileInputStream(file);
+                InputStream filein = new BufferedInputStream(new FileInputStream(file));
                 byte[] bytes = new byte[8192];
                 int total = filein.read(bytes);
                 while (total != -1) {
