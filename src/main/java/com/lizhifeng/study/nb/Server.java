@@ -1,16 +1,19 @@
 package com.lizhifeng.study.nb;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import static com.lizhifeng.study.nb.WebConfig.blackIP;
+import static com.lizhifeng.study.nb.WebConfig.*;
 
 
 public class Server {
     public static void main(String[] args) throws IOException {
+
+        InetAddress address = InetAddress.getByName(host) ;
         // establish server socket
-        try (ServerSocket s = new ServerSocket(8090)) {
+        try (ServerSocket s = new ServerSocket(port,backlog,address)) {
             while (true) {
                 // wait for client connection
                 Socket incoming = s.accept();
@@ -28,7 +31,8 @@ public class Server {
 // jsp 还是编译成servlet
 // 如何支持多host和多webapp
 // NIO
-// keep-alive
+// keep-alive  一次socket连接处理多个请求
+// 守护进程(如何制作守护进程)
 
 
 
