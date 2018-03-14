@@ -28,6 +28,7 @@ public class Server {
 // jsp 还是编译成servlet
 // 如何支持多host和多webapp
 // NIO
+// keep-alive
 
 
 
