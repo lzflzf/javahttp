@@ -64,6 +64,7 @@ public class HandleThread1 implements Runnable {
             if (file.exists() && file.isFile()) {
                 out.println("HTTP/1.1 200 OK");
                 out.println("Content-Type: " + ContentType + "; charset=utf-8");
+                out.println("Cache-Control: max-age=31536000, public");
                 // out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
                 out.println();    //  输出header头
 
