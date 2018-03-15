@@ -78,7 +78,7 @@ public class HandleThread1 implements Runnable {
                 }
             } else {
                 out.println("HTTP/1.1 404 Not Found");
-                out.println("Content-Type: text/plain; charset=utf-8");
+                // out.println("Content-Type: " + ContentType + "; charset=utf-8");
                 out.println();
                 out.println("404页面");
             }
