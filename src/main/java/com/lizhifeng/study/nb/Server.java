@@ -20,7 +20,7 @@ public class Server {
 //                System.out.println(incoming.getRemoteSocketAddress().toString()) ;
 //                System.out.println(incoming.getInetAddress().getHostAddress());
 //                System.out.println(incoming.getInetAddress().getHostName());
-                new Thread(new HandleThread1(incoming)).start();
+                new Thread(new HandleThread2(incoming)).start();
 
             }
         }
