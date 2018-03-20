@@ -3,7 +3,6 @@ package com.lizhifeng.study.nb;
 import java.io.*;
 import java.net.Socket;
 import java.net.URLDecoder;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -45,13 +44,15 @@ public class HandleThread2 implements Runnable {
                     bbos.write(bytes, 0, total);
                 }
 
-                System.out.println(new String(bbos.toByteArray()));
+                /// System.out.println(new String(bbos.toByteArray()));
+                // 这里将socket的内容全部先读取到一个byte数组中再进行分析，如果body过大会占用很大的内存
+                // 应当边读边进行分析，不过这样代码实现起来难度会大很多，
+                // 即使现在将整个内容读取到一个byte数组中再进行解析，处理逻辑也是相当的别扭
                 handle(bbos.toByteArray(), outStream);
 
                 System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + keepAlive);
                 keepAlive--;
             }
-
 
             // this.incoming.close();
         } catch (Exception e) {
@@ -88,11 +89,48 @@ public class HandleThread2 implements Runnable {
             }
         }
 
-        ///  开始解析正文
-        ///  先获取Content-type 和 分界线
+        ///  开始解析 cookie
 
+        ///  根据cookie中的sessionid获取session对象
+        /// (第一次访问不会含有sessionid，需要生成一个sessionid和一个相关联的文件(序列化存储session对象))
+        ///  多个实例可以共享session存储的目录达到保持登录的要求，但是会不会有多个实例同时操作文件的冲突???
+        ///  play处理session的手法比较特别，将session实体序列化存储到cookie中，同时为了防止cookie中的内容被篡改，
+        ///  给序列化后字符串生成了一个定长的sign放在字符串前面 key-([sign][value])
+        ///  if(encrypt(value)==sign)则证明session内容没有被篡改 。  (tomcat的处理则是序列化后存储到文件中)
+        ///  会有多个线程同时操作这个session对象，因此序列化和反序列化应该 加锁
+        ///  修改cookie中的sessionid 是不是就能获取到另外一个用户的信息了 session碰撞
 
         List<FormItem> FormItems = new ArrayList<FormItem>();
+        ///  解析 url ?  后面的参数
+
+        String[] path = header.filePath.split("\\?");
+        if (path.length > 1) {
+            header.filePath = path[0];
+            String parms = path[1];
+            String[] parmArray = parms.split("&");
+
+            for (String parm : parmArray) {
+                String[] key_value = parm.split("=");
+                FormItem formItem = new FormItem();
+                formItem.type = Type.string;
+                formItem.keyname = URLDecoder.decode(key_value[0],"UTF-8");
+                if(key_value.length==2) {
+                    formItem.value = URLDecoder.decode(key_value[1],"UTF-8");
+                }
+                else {
+                    formItem.value = "";
+                }
+                FormItems.add(formItem);
+            }
+        }
+
+        if (header.filePath.equals("/")) {
+            header.filePath = "/a.html";   // 默认首页
+        }
+
+        ///  开始解析正文  body  form 表单的解析
+        ///  先获取Content-type 和 分界线
+        ///
         String ContentType = header.headers.get("Content-Type");
 
         if (ContentType != null) {
@@ -164,8 +202,8 @@ public class HandleThread2 implements Runnable {
                                     isItemEnd = true;
                                 }
                             }
-                            contentEnd = i - 1;
 
+                            contentEnd = i - 1;
                         }
                     }
                 }
@@ -189,19 +227,20 @@ public class HandleThread2 implements Runnable {
                 }
 
                 System.out.println(content);
+            } else {
+                    // 其他的编码格式
             }
         }
 
 
         String filePath = header.filePath;
 
-        ContentType = MimeTypes.getMimeType(filePath);
-
         if (filePath.equals("/b.html")) {
             writeFormItems(FormItems, os);
             return;
         }
 
+        ContentType = MimeTypes.getMimeType(filePath);
         writeContent(ContentType, filePath, os);
 
         System.out.println("end!!!!!!!");
@@ -225,7 +264,6 @@ public class HandleThread2 implements Runnable {
         }
         out.flush();
         out.close();
-
     }
 
     private void writeContent(String ContentType, String filePath, OutputStream outStream) throws FileNotFoundException, IOException {
@@ -254,7 +292,7 @@ public class HandleThread2 implements Runnable {
             out.println("HTTP/1.1 404 Not Found");
             // out.println("Content-Type: " + ContentType + "; charset=utf-8");
             out.println();
-            out.println("404页面");
+            out.println("404 page");
         }
 
         /// out.println();  不需要的

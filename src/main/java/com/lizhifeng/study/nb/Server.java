@@ -36,6 +36,7 @@ public class Server {
 //  Cache-Control: no-cache   明确告诉服务器要读取新文件
 //  Cache-Control:
 //  MVC
+///  压缩的处理
 
 
 
