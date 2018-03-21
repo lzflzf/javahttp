@@ -1,6 +1,7 @@
 package com.lizhifeng.study.nb;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.util.ArrayList;
@@ -44,11 +45,11 @@ public class HandleThread2 implements Runnable {
                     bbos.write(bytes, 0, total);
                 }
 
-                /// System.out.println(new String(bbos.toByteArray()));
+                System.out.println(new String(bbos.toByteArray()));
                 // 这里将socket的内容全部先读取到一个byte数组中再进行分析，如果body过大会占用很大的内存
                 // 应当边读边进行分析，不过这样代码实现起来难度会大很多，
                 // 即使现在将整个内容读取到一个byte数组中再进行解析，处理逻辑也是相当的别扭
-                handle(bbos.toByteArray(), outStream);
+                handle(bbos.toByteArray(), outStream,inStream);
 
                 System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + keepAlive);
                 keepAlive--;
@@ -61,14 +62,14 @@ public class HandleThread2 implements Runnable {
         }
     }
 
-    public void handle(byte[] bytes, OutputStream os) throws UnsupportedEncodingException, FileNotFoundException, IOException {
+    public void handle(byte[] bytes, OutputStream os,InputStream inStream) throws UnsupportedEncodingException, FileNotFoundException, IOException {
 
         int flag = 0;
         Header header = new Header();
 
         boolean isFirstLine = true;
 
-        for (int i = 0; i < bytes.length - 4; i++) {
+        for (int i = 0; i <= bytes.length - 2; i++) {
             if (bytes[i] == '\r' && bytes[i + 1] == '\n') {
                 String item = new String(bytes, flag, i - flag);
                 flag = i + 2;
@@ -88,6 +89,8 @@ public class HandleThread2 implements Runnable {
                 }
             }
         }
+
+        ////  有可能只是读到了一个header 头
 
         ///  开始解析 cookie
 
@@ -126,6 +129,52 @@ public class HandleThread2 implements Runnable {
 
         if (header.filePath.equals("/")) {
             header.filePath = "/a.html";   // 默认首页
+        }
+
+        // byte[] body  ;
+
+
+        String ContentLength = header.headers.get("Content-Length") ;
+
+        if(ContentLength != null) {
+            //  获取body正文
+            int contentLength = Integer.valueOf(ContentLength);
+
+            if ((contentLength + flag) == bytes.length) {
+                //  说明content已经被读取到byte中去了
+                // body = new byte[contentLength];
+                // System.arraycopy(bytes, flag, body, 0, contentLength);
+            }
+
+            if (flag == bytes.length) {
+                //  说明 content 还没有读取
+                ByteArrayOutputStream bbos = new ByteArrayOutputStream();
+                byte[] bytetmp = new byte[1024];
+                int allreadReadTotal = bytes.length;
+                while (contentLength > allreadReadTotal) {
+                    // 伪造一个错误的Content-Length 这里就会陷入死循环啦！！！
+                    int total = 1024;
+                    while (total == 1024) {
+                        total = inStream.read(bytetmp);
+                        allreadReadTotal += total;
+                        bbos.write(bytetmp, 0, total);
+                    }
+                }
+
+                byte[] body = bbos.toByteArray();
+
+                byte[] tmpByteArray = new byte[contentLength+flag] ;
+
+                System.arraycopy(bytes,0,tmpByteArray,0,bytes.length);
+                System.arraycopy(body,0,tmpByteArray,bytes.length,contentLength);
+
+                bytes = new byte[contentLength+flag] ;
+                bytes = tmpByteArray ;
+
+
+                System.out.println(new String(bbos.toByteArray()));
+                System.out.println("eeeeeeeeeeeeeeeeeeee");
+            }
         }
 
         ///  开始解析正文  body  form 表单的解析
@@ -214,11 +263,11 @@ public class HandleThread2 implements Runnable {
                 for (String item : items) {
                     String[] key_vale = item.split("=");
                     FormItem formItem = new FormItem();
-                    formItem.keyname = key_vale[0];
+                    formItem.keyname = URLDecoder.decode(key_vale[0],"UTF-8");
                     formItem.type = Type.string;
 
                     if (key_vale.length == 2) {
-                        formItem.value = key_vale[1];
+                        formItem.value = URLDecoder.decode(key_vale[1],"UTF-8");
                     } else {
                         formItem.value = "";
                     }
@@ -303,6 +352,11 @@ public class HandleThread2 implements Runnable {
 
 
     public String writeFile(byte[] bytes, int off, int length, String fileName) throws FileNotFoundException, IOException {
+
+        if (fileName.equals("")) {
+            return "";                        //  空文件
+        }
+
         String[] tempArray = fileName.split("\\.");
         String newFileNmae = "tmp/" + UUID.randomUUID().toString().replaceAll("-", "") + "." + tempArray[1];
 
