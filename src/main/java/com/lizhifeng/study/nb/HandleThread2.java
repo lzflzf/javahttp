@@ -44,6 +44,7 @@ public class HandleThread2 implements Runnable {
                     total = inStream.read(bytes);
                     bbos.write(bytes, 0, total);
                 }
+                // 客户端不停的发送byte过来，这里就呵呵啦
 
                 System.out.println(new String(bbos.toByteArray()));
                 // 这里将socket的内容全部先读取到一个byte数组中再进行分析，如果body过大会占用很大的内存
