@@ -50,7 +50,7 @@ public class HandleThread2 implements Runnable {
                 // 这里将socket的内容全部先读取到一个byte数组中再进行分析，如果body过大会占用很大的内存
                 // 应当边读边进行分析，不过这样代码实现起来难度会大很多，
                 // 即使现在将整个内容读取到一个byte数组中再进行解析，处理逻辑也是相当的别扭
-                handle(bbos.toByteArray(), outStream,inStream);
+                handle(bbos.toByteArray(), outStream, inStream);
 
                 System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + keepAlive);
                 keepAlive--;
@@ -63,7 +63,7 @@ public class HandleThread2 implements Runnable {
         }
     }
 
-    public void handle(byte[] bytes, OutputStream os,InputStream inStream) throws UnsupportedEncodingException, FileNotFoundException, IOException {
+    public void handle(byte[] bytes, OutputStream os, InputStream inStream) throws UnsupportedEncodingException, FileNotFoundException, IOException {
 
         int flag = 0;
         Header header = new Header();
@@ -117,11 +117,10 @@ public class HandleThread2 implements Runnable {
                 String[] key_value = parm.split("=");
                 FormItem formItem = new FormItem();
                 formItem.type = Type.string;
-                formItem.keyname = URLDecoder.decode(key_value[0],"UTF-8");
-                if(key_value.length==2) {
-                    formItem.value = URLDecoder.decode(key_value[1],"UTF-8");
-                }
-                else {
+                formItem.keyname = URLDecoder.decode(key_value[0], "UTF-8");
+                if (key_value.length == 2) {
+                    formItem.value = URLDecoder.decode(key_value[1], "UTF-8");
+                } else {
                     formItem.value = "";
                 }
                 FormItems.add(formItem);
@@ -135,9 +134,9 @@ public class HandleThread2 implements Runnable {
         // byte[] body  ;
 
 
-        String ContentLength = header.headers.get("Content-Length") ;
+        String ContentLength = header.headers.get("Content-Length");
 
-        if(ContentLength != null) {
+        if (ContentLength != null) {
             //  获取body正文
             int contentLength = Integer.valueOf(ContentLength);
 
@@ -164,13 +163,13 @@ public class HandleThread2 implements Runnable {
 
                 byte[] body = bbos.toByteArray();
 
-                byte[] tmpByteArray = new byte[contentLength+flag] ;
+                byte[] tmpByteArray = new byte[contentLength + flag];
 
-                System.arraycopy(bytes,0,tmpByteArray,0,bytes.length);
-                System.arraycopy(body,0,tmpByteArray,bytes.length,contentLength);
+                System.arraycopy(bytes, 0, tmpByteArray, 0, bytes.length);
+                System.arraycopy(body, 0, tmpByteArray, bytes.length, contentLength);
 
-                bytes = new byte[contentLength+flag] ;
-                bytes = tmpByteArray ;
+                bytes = new byte[contentLength + flag];
+                bytes = tmpByteArray;
 
 
                 System.out.println(new String(bbos.toByteArray()));
@@ -264,11 +263,11 @@ public class HandleThread2 implements Runnable {
                 for (String item : items) {
                     String[] key_vale = item.split("=");
                     FormItem formItem = new FormItem();
-                    formItem.keyname = URLDecoder.decode(key_vale[0],"UTF-8");
+                    formItem.keyname = URLDecoder.decode(key_vale[0], "UTF-8");
                     formItem.type = Type.string;
 
                     if (key_vale.length == 2) {
-                        formItem.value = URLDecoder.decode(key_vale[1],"UTF-8");
+                        formItem.value = URLDecoder.decode(key_vale[1], "UTF-8");
                     } else {
                         formItem.value = "";
                     }
@@ -277,8 +276,31 @@ public class HandleThread2 implements Runnable {
                 }
 
                 System.out.println(content);
+            } else if (ContentType.startsWith("text/plain")) {
+                String content = new String(bytes, flag, bytes.length - flag);
+
+                String[] items = content.split("\r\n");
+                for (String item : items) {
+                        // 一行一个 并且不需要使用URIDecode
+                    int index = item.indexOf("=");
+                    if (index > 0 && index < item.length() - 1) {
+                        FormItem formItem = new FormItem();
+                        formItem.keyname = item.substring(0, index);
+                        formItem.value = item.substring(index + 1, item.length());
+                        formItem.type = Type.string;
+                        FormItems.add(formItem);
+                    }
+
+                    if (index == item.length() - 1) {
+                        FormItem formItem = new FormItem();
+                        formItem.keyname = item.substring(0, index);
+                        formItem.value = "";
+                        formItem.type = Type.string;
+                        FormItems.add(formItem);
+                    }
+                }
             } else {
-                    // 其他的编码格式
+
             }
         }
 
