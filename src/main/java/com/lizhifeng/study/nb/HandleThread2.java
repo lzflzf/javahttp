@@ -26,15 +26,16 @@ public class HandleThread2 implements Runnable {
 
     @Override
     public void run() {
-        System.out.println(Thread.currentThread());
+        //System.out.println(Thread.currentThread());
 
         try {
             InputStream inStream = incoming.getInputStream();
             OutputStream outStream = incoming.getOutputStream();
 
             int keepAlive = 100;
+            this.incoming.setKeepAlive(true);  // 是否保持长连接
 
-            // while (keepAlive > 1000)
+            while (keepAlive > 0)
             {
                 ByteArrayOutputStream bbos = new ByteArrayOutputStream();
                 byte[] bytes = new byte[1024];
@@ -42,21 +43,29 @@ public class HandleThread2 implements Runnable {
                 int total = 1024;
                 while (total == 1024) {
                     total = inStream.read(bytes);
-                    bbos.write(bytes, 0, total);
+                    if (total != -1) {
+                        bbos.write(bytes, 0, total);
+                    }
                 }
                 // 客户端不停的发送byte过来，这里就呵呵啦
 
-                System.out.println(new String(bbos.toByteArray()));
+                //System.out.println(new String(bbos.toByteArray()));
                 // 这里将socket的内容全部先读取到一个byte数组中再进行分析，如果body过大会占用很大的内存
                 // 应当边读边进行分析，不过这样代码实现起来难度会大很多，
                 // 即使现在将整个内容读取到一个byte数组中再进行解析，处理逻辑也是相当的别扭
+
+
+                //System.out.println("KeepAlive------------" + this.incoming.getKeepAlive());
+
+                System.out.println(new String(bbos.toByteArray()));
+
                 handle(bbos.toByteArray(), outStream, inStream);
 
                 System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + keepAlive);
                 keepAlive--;
             }
 
-            // this.incoming.close();
+            this.incoming.close();
         } catch (Exception e) {
             e.printStackTrace();
             return;
@@ -74,7 +83,7 @@ public class HandleThread2 implements Runnable {
             if (bytes[i] == '\r' && bytes[i + 1] == '\n') {
                 String item = new String(bytes, flag, i - flag);
                 flag = i + 2;
-                System.out.println(item);
+                // System.out.println(item);
                 if (item.equals("")) {
                     break;        // 解析 header 结束
                 }
@@ -110,8 +119,8 @@ public class HandleThread2 implements Runnable {
         String[] path = header.filePath.split("\\?");
         if (path.length > 1) {
             header.filePath = path[0];
-            String parms = path[1];
-            String[] parmArray = parms.split("&");
+            String query_string = path[1];
+            String[] parmArray = query_string.split("&");
 
             for (String parm : parmArray) {
                 String[] key_value = parm.split("=");
@@ -156,8 +165,10 @@ public class HandleThread2 implements Runnable {
                     int total = 1024;
                     while (total == 1024) {
                         total = inStream.read(bytetmp);
-                        allreadReadTotal += total;
-                        bbos.write(bytetmp, 0, total);
+                        if(total != -1) {
+                            allreadReadTotal += total;
+                            bbos.write(bytetmp, 0, total);
+                        }
                     }
                 }
 
@@ -172,8 +183,8 @@ public class HandleThread2 implements Runnable {
                 bytes = tmpByteArray;
 
 
-                System.out.println(new String(bbos.toByteArray()));
-                System.out.println("eeeeeeeeeeeeeeeeeeee");
+                // System.out.println(new String(bbos.toByteArray()));
+                // System.out.println("eeeeeeeeeeeeeeeeeeee");
             }
         }
 
@@ -204,7 +215,7 @@ public class HandleThread2 implements Runnable {
                         if (isNeedToLine) {
                             String item = new String(bytes, flag, i - flag);
                             flag = i + 2;
-                            System.out.println(item);
+                            // System.out.println(item);
 
                             //   Content-Disposition
                             if (item.contains("Content-Disposition")) {
@@ -228,7 +239,7 @@ public class HandleThread2 implements Runnable {
                             if (item.equals("") && isContentBegin) {
                                 contentBegin = flag;
                                 isContentBegin = false;
-                                System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + contentBegin);
+                                // System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + contentBegin);
                             }
 
                             if (item.equals(boundary) || item.equals(boundary + "--")) {                  //  如果等于分界线
@@ -275,7 +286,7 @@ public class HandleThread2 implements Runnable {
                     FormItems.add(formItem);
                 }
 
-                System.out.println(content);
+                // System.out.println(content);
             } else if (ContentType.startsWith("text/plain")) {
                 String content = new String(bytes, flag, bytes.length - flag);
 
@@ -315,7 +326,7 @@ public class HandleThread2 implements Runnable {
         ContentType = MimeTypes.getMimeType(filePath);
         writeContent(ContentType, filePath, os);
 
-        System.out.println("end!!!!!!!");
+        // System.out.println("end!!!!!!!");
     }
 
     private void writeFormItems(List<FormItem> formItems, OutputStream outStream) {
@@ -335,7 +346,7 @@ public class HandleThread2 implements Runnable {
             }
         }
         out.flush();
-        out.close();
+        // out.close();
     }
 
     private void writeContent(String ContentType, String filePath, OutputStream outStream) throws FileNotFoundException, IOException {
@@ -348,9 +359,11 @@ public class HandleThread2 implements Runnable {
             out.println("HTTP/1.1 200 OK");
             out.println("Content-Type: " + ContentType + "; charset=utf-8");
             out.println("Connection: Keep-Alive");
+            out.println("Content-Length: "+ file.length());
             // out.println("Cache-Control: max-age=31536000, public");
             // out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
             out.println();    //  输出header头
+            out.flush();
 
             InputStream filein = new BufferedInputStream(new FileInputStream(file));
             byte[] bytes = new byte[8192];
@@ -360,17 +373,15 @@ public class HandleThread2 implements Runnable {
                 outStream.flush();
                 total = filein.read(bytes);
             }
+            outStream.flush();
         } else {
             out.println("HTTP/1.1 404 Not Found");
-            // out.println("Content-Type: " + ContentType + "; charset=utf-8");
+            out.println("Content-Length: 8");
             out.println();
             out.println("404 page");
+            out.flush();
         }
 
-        /// out.println();  不需要的
-        out.flush();
-        outStream.close();
-        out.close();
     }
 
 

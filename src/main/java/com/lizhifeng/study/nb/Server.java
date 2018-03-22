@@ -14,6 +14,7 @@ public class Server {
         InetAddress address = InetAddress.getByName(host) ;
         // establish server socket
         try (ServerSocket s = new ServerSocket(port,backlog,address)) {
+            // s.setSoTimeout(1000);
             while (true) {
                 // wait for client connection
                 Socket incoming = s.accept();
