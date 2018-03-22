@@ -35,7 +35,7 @@ public class HandleThread2 implements Runnable {
             int keepAlive = 100;
             this.incoming.setKeepAlive(true);
             // 是否保持长连接
-            // 支持长连接  虽想socket处理完100个请求再关闭 但实际情况是 如果等到处理100个请求，此线程会一直hungup 一个客户端会占用很多的线程
+            // 支持长连接  虽想socket处理完100个请求再关闭 但实际情况是 如果等到处理100个请求(也许根本等不到)，此线程会一直hungup 一个客户端会占用很多的线程
             while (keepAlive > 0)
             {
                 ByteArrayOutputStream bbos = new ByteArrayOutputStream();
