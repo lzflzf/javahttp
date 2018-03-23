@@ -1,12 +1,11 @@
 package com.lizhifeng.study.nb;
 
+import javax.servlet.http.Cookie;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.net.Socket;
 import java.net.URLDecoder;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,6 +16,10 @@ public class HandleThread2 implements Runnable {
 
     private static Pattern keyNamePattern = Pattern.compile("name=\"(.*)\"");
     private static Pattern fileNamePattern = Pattern.compile("name=\"(.*?)\".*?filename=\"(.*?)\"");
+    public static String SessionLock = "SessionLock" ;
+
+
+    public static Map<String,Map<String,Object>>  SessionFactory = new HashMap<>() ;
 
     private Socket incoming;
 
@@ -104,17 +107,60 @@ public class HandleThread2 implements Runnable {
             }
         }
 
+        ///
+
+        Map<String,Cookie> requestCookies = new HashMap<String,Cookie>() ;
+        Map<String,Cookie> reponseCookies = new HashMap<String,Cookie>() ;
+
+        String JESSIONID ;
+
+        String cookieString = header.headers.get("cookie") ;
+
+        if(cookieString != null) {
+            String[] cookies = cookieString.split(";");
+            for (String cookie : cookies) {
+                String key_value[] = cookie.split("=");
+                Cookie tmpcookie = new Cookie(key_value[0].trim(), key_value[1].trim());
+                requestCookies.put(key_value[0].trim(), tmpcookie);
+            }
+        }
+
+        if (!requestCookies.containsKey("JSESSIONID")) {
+            String UUID = java.util.UUID.randomUUID().toString();
+            Cookie cookie = new Cookie("JSESSIONID", UUID);
+            reponseCookies.put("JSESSIONID", cookie);
+            Map<String, Object> session = new HashMap<String, Object>();
+            session.put("requestTimes", 0);
+            SessionFactory.put(UUID, session);
+            JESSIONID = UUID;
+        } else {
+            JESSIONID = reponseCookies.get("JSESSIONID").getValue();
+        }
+
+        int requestTimes = (int) SessionFactory.get(JESSIONID).get("requestTimes");
+        SessionFactory.get(JESSIONID).put("requestTimes", requestTimes + 1);
+        System.out.println("requestTimes AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + requestTimes);
+
+        // SessionFactory.get(JESSIONID).put("fdsfdsfsdfsdafadsfasd",3) ;
+
+
         ////  有可能只是读到了一个header 头
 
         ///  开始解析 cookie
 
         ///  根据cookie中的sessionid获取session对象
         /// (第一次访问不会含有sessionid，需要生成一个sessionid和一个相关联的文件(序列化存储session对象))
+        ///  Set-Cookie: PLAY_Online_FLASH=;Expires=Fri, 23-Mar-2018 05:29:31 GMT;Path=/
         ///  多个实例可以共享session存储的目录达到保持登录的要求，但是会不会有多个实例同时操作文件的冲突???
         ///  play处理session的手法比较特别，将session实体序列化存储到cookie中，同时为了防止cookie中的内容被篡改，
         ///  给序列化后字符串生成了一个定长的sign放在字符串前面 key-([sign][value])
         ///  if(encrypt(value)==sign)则证明session内容没有被篡改 。  (tomcat的处理则是序列化后存储到文件中)
-        ///  会有多个线程同时操作这个session对象，因此序列化和反序列化应该 加锁
+        ///  不过这样会有一个问题，session永久不会失效
+        ///  只要PLAY_Online_SESSION 不失效的话用户就用户可以处于登录状态了(即使修改了密码原来的cookie也照样可以登录)
+        ///  只要不清除浏览器的缓存，打开网站就是处于登录状态了（比在公众场合记住密码更麻烦）
+        ///  play 1.2.4 版本存在这个问题，以后版本session的处理方式不知道有没有改变
+        ///  isHttpOnly 不支持
+        ///
         ///  修改cookie中的sessionid 是不是就能获取到另外一个用户的信息了 session碰撞
 
         List<FormItem> FormItems = new ArrayList<FormItem>();
@@ -328,7 +374,7 @@ public class HandleThread2 implements Runnable {
         }
 
         ContentType = MimeTypes.getMimeType(filePath);
-        writeContent(ContentType, filePath, os);
+        writeContent(ContentType, filePath, os,reponseCookies);
 
         // System.out.println("end!!!!!!!");
     }
@@ -353,7 +399,7 @@ public class HandleThread2 implements Runnable {
         // out.close();
     }
 
-    private void writeContent(String ContentType, String filePath, OutputStream outStream) throws FileNotFoundException, IOException {
+    private void writeContent(String ContentType, String filePath, OutputStream outStream,Map<String,Cookie> cookieMap) throws FileNotFoundException, IOException {
 
         String fullFilePath = rootPath + filePath;
         File file = new File(fullFilePath);
@@ -364,6 +410,7 @@ public class HandleThread2 implements Runnable {
             out.println("Content-Type: " + ContentType + "; charset=utf-8");
             out.println("Connection: Keep-Alive");
             out.println("Content-Length: "+ file.length());
+            out.println("Set-Cookie: "+ cookieMap.get("JESSIONID").getName() + "=" + cookieMap.get("JESSIONID").getValue());
             // out.println("Cache-Control: max-age=31536000, public");
             // out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
             out.println();    //  输出header头
