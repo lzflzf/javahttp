@@ -2,7 +2,6 @@ package com.lizhifeng.study.nb;
 
 import javax.servlet.http.Cookie;
 import java.io.*;
-import java.lang.reflect.Array;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.util.*;
@@ -112,9 +111,9 @@ public class HandleThread2 implements Runnable {
         Map<String,Cookie> requestCookies = new HashMap<String,Cookie>() ;
         Map<String,Cookie> reponseCookies = new HashMap<String,Cookie>() ;
 
-        String JESSIONID ;
+        String JSESSIONID ;
 
-        String cookieString = header.headers.get("cookie") ;
+        String cookieString = header.headers.get("Cookie") ;
 
         if(cookieString != null) {
             String[] cookies = cookieString.split(";");
@@ -124,6 +123,8 @@ public class HandleThread2 implements Runnable {
                 requestCookies.put(key_value[0].trim(), tmpcookie);
             }
         }
+        ///  此处应该有cookie数量和长度的限制 ，一切客户端的输入都是不可信的
+        ///  各个浏览器对cookie的限制 https://www.cnblogs.com/henryhappier/archive/2011/03/03/1969564.html
 
         if (!requestCookies.containsKey("JSESSIONID")) {
             String UUID = java.util.UUID.randomUUID().toString();
@@ -132,13 +133,21 @@ public class HandleThread2 implements Runnable {
             Map<String, Object> session = new HashMap<String, Object>();
             session.put("requestTimes", 0);
             SessionFactory.put(UUID, session);
-            JESSIONID = UUID;
+            JSESSIONID = UUID;
         } else {
-            JESSIONID = reponseCookies.get("JSESSIONID").getValue();
+            JSESSIONID = requestCookies.get("JSESSIONID").getValue();
         }
 
-        int requestTimes = (int) SessionFactory.get(JESSIONID).get("requestTimes");
-        SessionFactory.get(JESSIONID).put("requestTimes", requestTimes + 1);
+        int requestTimes = 0 ;
+
+        if (SessionFactory.containsKey(JSESSIONID)) {
+            requestTimes = (int) SessionFactory.get(JSESSIONID).get("requestTimes");
+            SessionFactory.get(JSESSIONID).put("requestTimes", ++requestTimes);
+        } else {
+            SessionFactory.put(JSESSIONID, new HashMap<String, Object>());
+            SessionFactory.get(JSESSIONID).put("requestTimes", ++requestTimes);
+        }
+
         System.out.println("requestTimes AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + requestTimes);
 
         // SessionFactory.get(JESSIONID).put("fdsfdsfsdfsdafadsfasd",3) ;
@@ -156,12 +165,14 @@ public class HandleThread2 implements Runnable {
         ///  给序列化后字符串生成了一个定长的sign放在字符串前面 key-([sign][value])
         ///  if(encrypt(value)==sign)则证明session内容没有被篡改 。  (tomcat的处理则是序列化后存储到文件中)
         ///  不过这样会有一个问题，session永久不会失效
+        ///  在session里面加一个过期时间参数，每次取出来和当前时间进行判断此session是否有效。。。
         ///  只要PLAY_Online_SESSION 不失效的话用户就用户可以处于登录状态了(即使修改了密码原来的cookie也照样可以登录)
         ///  只要不清除浏览器的缓存，打开网站就是处于登录状态了（比在公众场合记住密码更麻烦）
         ///  play 1.2.4 版本存在这个问题，以后版本session的处理方式不知道有没有改变
         ///  isHttpOnly 不支持
         ///
         ///  修改cookie中的sessionid 是不是就能获取到另外一个用户的信息了 session碰撞
+        ///  play
 
         List<FormItem> FormItems = new ArrayList<FormItem>();
         ///  解析 url ?  后面的参数
@@ -396,6 +407,7 @@ public class HandleThread2 implements Runnable {
             }
         }
         out.flush();
+        //  没有告诉客户端content的长度，因此浏览器会一直转圈圈  // 长连接
         // out.close();
     }
 
@@ -410,7 +422,15 @@ public class HandleThread2 implements Runnable {
             out.println("Content-Type: " + ContentType + "; charset=utf-8");
             out.println("Connection: Keep-Alive");
             out.println("Content-Length: "+ file.length());
-            out.println("Set-Cookie: "+ cookieMap.get("JESSIONID").getName() + "=" + cookieMap.get("JESSIONID").getValue());
+
+            for (Map.Entry<String, Cookie> entry : cookieMap.entrySet()) {
+                Cookie cookie = entry.getValue();
+                out.println("Set-Cookie: " + cookie.getName() + "=" + cookie.getValue()+";Max-Age=-100;HTTPOnly");
+            }
+
+            // out.println("Set-Cookie: " + "Domain" + "=" + "Domain");
+            //  cookie name 不能为保留字
+
             // out.println("Cache-Control: max-age=31536000, public");
             // out.println("Content-Encoding: gzip");  // 正文使用gzip进行压缩
             out.println();    //  输出header头
