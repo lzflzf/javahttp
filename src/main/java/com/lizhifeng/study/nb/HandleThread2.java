@@ -156,6 +156,7 @@ public class HandleThread2 implements Runnable {
         ////  有可能只是读到了一个header 头
 
         ///  开始解析 cookie
+        ///  cookie name必须是ascii可见字符且不能包含 \t&()<>等 ，且不能以$符号开头
 
         ///  根据cookie中的sessionid获取session对象
         /// (第一次访问不会含有sessionid，需要生成一个sessionid和一个相关联的文件(序列化存储session对象))
@@ -372,7 +373,9 @@ public class HandleThread2 implements Runnable {
                     }
                 }
             } else {
-
+                    // 其实form表单除了是文件或者字符串以外 还可有能是Protobuf 就是一个byte数组 把他弄到文件里面也不合适，弄成字符串也不合适
+                    // 自定义编码格式  application/x-protobuf  zhuhu post请求使用的是这个玩意
+                    //  request 中还有可能包含 Content-Encoding
             }
         }
 
@@ -397,6 +400,7 @@ public class HandleThread2 implements Runnable {
         out.println("HTTP/1.1 200 OK");
         out.println("Content-Type: text/html; charset=utf-8");
         out.println("Connection: Keep-Alive");
+        out.println("WWW-Authenticate: Basic realm=\"aaaaaa\"");
         out.println();    //  输出header头
 
         for (FormItem formItem : formItems) {
@@ -406,9 +410,12 @@ public class HandleThread2 implements Runnable {
                 out.println(String.format("key为%s  , 文件路径为<a href=%s target= _blank>点击验证此文件是不是您刚才上传的文件</a></br></br>", formItem.keyname, formItem.value));
             }
         }
+        out.println();
         out.flush();
-        //  没有告诉客户端content的长度，因此浏览器会一直转圈圈  // 长连接
-        // out.close();
+        //  没有告诉客户端content的长度，因此浏览器会一直转圈圈（等待后台继续传送数据） 这个线程也就会这样一直挂着 // 长连接
+        //  谷歌浏览器只能同时6个请求   多了的话 就会显示  正在等待可用的套接字
+        //  edge好像没有限制，可以无限打开新页面
+        // out.close();  直接close掉也不行，上面的循环会出问题  java.net.SocketException: socket closed
     }
 
     private void writeContent(String ContentType, String filePath, OutputStream outStream,Map<String,Cookie> cookieMap) throws FileNotFoundException, IOException {
@@ -422,10 +429,10 @@ public class HandleThread2 implements Runnable {
             out.println("Content-Type: " + ContentType + "; charset=utf-8");
             out.println("Connection: Keep-Alive");
             out.println("Content-Length: "+ file.length());
-
+            out.println("WWW-Authenticate: Basic realm=\"aaaaaa\"");  // 配合401使用
             for (Map.Entry<String, Cookie> entry : cookieMap.entrySet()) {
                 Cookie cookie = entry.getValue();
-                out.println("Set-Cookie: " + cookie.getName() + "=" + cookie.getValue()+";Max-Age=-100;HTTPOnly");
+                out.println("Set-Cookie: " + cookie.getName() + "=" + cookie.getValue()+";HTTPOnly");
             }
 
             // out.println("Set-Cookie: " + "Domain" + "=" + "Domain");
@@ -437,7 +444,8 @@ public class HandleThread2 implements Runnable {
             out.flush();
 
             InputStream filein = new BufferedInputStream(new FileInputStream(file));
-            byte[] bytes = new byte[8192];
+            byte[] bytes = new byte[8096];   // 8KB 内存  8KB = 8 * 1024byte
+            // 为什么不是 8192 而是 8096
             int total = filein.read(bytes);
             while (total != -1) {
                 outStream.write(bytes, 0, total);
